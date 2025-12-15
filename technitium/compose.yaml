@@ -71,7 +71,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=${TRAEFIK_NETWORK}"
         ## HTTP Routers
-      - "traefik.http.routers.$COMPOSE_PROJECT_NAME-rtr.rule=Host(`dns.${DOMAIN_NAME}`) || Host(`ns01.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}-${SERVER_NAME}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.$COMPOSE_PROJECT_NAME-rtr.rule=Host(`dns.${DOMAIN_NAME}`) || Host(`${NS_NAME}.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}-${SERVER_NAME}.${DOMAIN_NAME}`)"
         ## HTTP Services
       - "traefik.http.services.$COMPOSE_PROJECT_NAME-svc.loadbalancer.server.port=5380"
       ## WUD Labels
