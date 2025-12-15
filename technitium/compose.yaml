@@ -1,0 +1,96 @@
+x-usage: &default-usage
+  # Max Usage Limits
+  mem_limit: ${MEM_LIMIT:-2G} # Override per container if necessary
+  memswap_limit: ${MEM_SWAP_LIMIT:-2.5G}
+  mem_reservation: ${MEM_RESERVATION:-64M}
+  pids_limit: ${PIDS_LIMIT:-200}
+  cpus: ${CPUS_LIMIT:-2} # Set below the total number of cores, for example 3.5 for 4 cores
+
+x-restart: &default-restart
+  # Restart Settings
+  stop_grace_period: ${RESTART_GRACE:-1m}
+  restart: ${RESTART_MODE:-unless-stopped}
+
+x-security: &default-security
+  # Configure User and Security Opts
+  user: ${PUID:-1000}:${PGID:-1000}
+  security_opt:
+   - no-new-privileges=true
+
+x-logging: &default-logging
+  # Configure Logging
+  logging:
+    options:
+      max-size: ${LOG_MAX_SIZE:-10m}
+      max-file: ${LOG_MAX_FILE:-3}
+
+x-base: &default-base
+  <<: [*default-usage, *default-restart, *default-security, *default-logging]
+
+x-healthcheck: &default-healthcheck
+  interval: ${HEALTH_INTERVAL:-60s}
+  timeout: ${HEALTH_TIMEOUT:-10s}
+  retries: ${HEALTH_RETRIES:-5}
+  start_period: ${HEALTH_START:-10s}
+
+x-environment: &default-environment
+  TZ: ${TZ:-America/Chicago}
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+ 
+# Compose Project Name
+name: technitium
+
+services:
+  technitium:
+    <<: *default-base
+    image: technitium/dns-server:${TECHNITIUM_VERSION:-latest}
+    #image: technitium/dns-server:latest
+    hostname: ${COMPOSE_PROJECT_NAME}-${SERVER_NAME}.${DOMAIN_NAME}
+    container_name: ${COMPOSE_PROJECT_NAME}-${SERVER_NAME}
+    ports:
+      # - "5380:5380/tcp" #DNS web console (HTTP)
+      # - "53443:53443/tcp" #DNS web console (HTTPS)
+      # - "53:53/udp" #DNS service
+      # - "53:53/tcp" #DNS service
+      - "853:853/udp" #DNS-over-QUIC service
+      - "853:853/tcp" #DNS-over-TLS service
+      # - "443:443/udp" #DNS-over-HTTPS service (HTTP/3)
+      # - "443:443/tcp" #DNS-over-HTTPS service (HTTP/1.1, HTTP/2)
+      # - "80:80/tcp" #DNS-over-HTTP service (use with reverse proxy or certbot certificate renewal)
+      # - "8053:8053/tcp" #DNS-over-HTTP service (use with reverse proxy)
+    environment:
+      <<: *default-environment
+      DNS_SERVER_DOMAIN: ${NS_NAME}.${DOMAIN_NAME} #The primary domain name used by this DNS Server to identify itself.
+      DNS_SERVER_FORWARDERS: #Comma separated list of forwarder addresses.
+      DNS_SERVER_FORWARDER_PROTOCOL: Tcp #Forwarder protocol options: Udp, Tcp, Tls, Https, HttpsJson.
+      DNS_SERVER_LOG_USING_LOCAL_TIME: true #Enable this option to use local time instead of UTC for logging.
+    volumes:
+      - "technitium_data:/etc/dns"
+    labels: ## Traefik Labels
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+        ## HTTP Routers
+      - "traefik.http.routers.$COMPOSE_PROJECT_NAME-rtr.rule=Host(`dns.${DOMAIN_NAME}`) || Host(`ns01.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}.${DOMAIN_NAME}`) || Host(`${COMPOSE_PROJECT_NAME}-${SERVER_NAME}.${DOMAIN_NAME}`)"
+        ## HTTP Services
+      - "traefik.http.services.$COMPOSE_PROJECT_NAME-svc.loadbalancer.server.port=5380"
+      ## WUD Labels
+      #- 'wud.tag.include=^\d+\.\d+\.\d+$$'
+      ## Komodo Labels
+      - "komodo.skip" # Prevent Komodo from stopping with StopAllContainers
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 ${DOMAIN_NAME} || exit 1"]
+      <<: *default-healthcheck
+    sysctls:
+      - net.ipv4.ip_local_port_range=1024 65535
+
+volumes:
+  technitium_data:
+    name: ${COMPOSE_PROJECT_NAME}_data
+
+networks:
+  frontend:
+    name: ${TRAEFIK_NETWORK}
+    external: true
