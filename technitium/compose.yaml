@@ -69,7 +69,7 @@ services:
       - "./technitium_data:/etc/dns"
     labels: ## Traefik Labels
       - "traefik.enable=true"
-      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.docker.network=${PROXY_NETWORK}"
         ## HTTP Routers
       - "traefik.http.routers.$PROJECT_NAME-rtr.rule=
         Host(`${NS_NAME}.${DOMAIN_NAME}`) || 
@@ -94,5 +94,5 @@ services:
 
 networks:
   frontend:
-    name: ${TRAEFIK_NETWORK}
+    name: ${PROXY_NETWORK}
     external: true
