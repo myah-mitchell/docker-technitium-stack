@@ -80,8 +80,6 @@ services:
         Host(`${PROJECT_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`)"
         ## HTTP Services
       - "traefik.http.services.$PROJECT_NAME-svc.loadbalancer.server.port=5380"
-      ## WUD Labels
-      #- 'wud.tag.include=^\d+\.\d+\.\d+$$'
       ## Komodo Labels
       - "komodo.skip" # Prevent Komodo from stopping with StopAllContainers
     networks:
