@@ -66,7 +66,7 @@ services:
       DNS_SERVER_FORWARDER_PROTOCOL: Tcp #Forwarder protocol options: Udp, Tcp, Tls, Https, HttpsJson.
       DNS_SERVER_LOG_USING_LOCAL_TIME: true #Enable this option to use local time instead of UTC for logging.
     volumes:
-      - "${DOCKER_VOLUMES}/${PROJECT_NAME}/technitium_data:/etc/dns"
+      - "${DOCKER_VOLUMES}/${PROJECT_NAME}/technitium-data:/etc/dns"
     labels: ## Traefik Labels
       - "traefik.enable=true"
       - "traefik.docker.network=${PROXY_NETWORK}"
