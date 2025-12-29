@@ -120,6 +120,7 @@ services:
       - "traefik.http.routers.$PROJECT_NAME-rtr.rule=
         Host(`${NS_NAME}.${DOMAIN_NAME}`) || 
         Host(`${NS_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`) || 
+        Host(`${NS_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`) ||
         Host(`${SERVICE_NAME}.${DOMAIN_NAME}`) ||
         Host(`${SERVICE_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`) ||
         Host(`${SERVICE_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`) ||
