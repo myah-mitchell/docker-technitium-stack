@@ -1,49 +1,95 @@
-x-usage: &default-usage
+###############################################################################
+# Start of default configs
+###############################################################################
+
+  #####################################
+  # Container base defaults
+  #####################################
   # Max Usage Limits
+x-limits: &limits
   mem_limit: ${MEM_LIMIT:-2G} # Override per container if necessary
   memswap_limit: ${MEM_SWAP_LIMIT:-2.5G}
   mem_reservation: ${MEM_RESERVATION:-64M}
   pids_limit: ${PIDS_LIMIT:-200}
   cpus: ${CPUS_LIMIT:-2} # Set below the total number of cores, for example 3.5 for 4 cores
 
-x-restart: &default-restart
   # Restart Settings
+x-restart: &restart
   stop_grace_period: ${RESTART_GRACE:-1m}
   restart: ${RESTART_MODE:-unless-stopped}
 
-x-security: &default-security
-  # Configure User and Security Opts
-  user: ${PUID:-1000}:${PGID:-1000}
+  # Configure security
+x-security: &security
   security_opt:
-   - no-new-privileges=true
+   - no-new-privileges=${NO_NEW_PRIVILEGES:-true}
 
-x-logging: &default-logging
+  # Configure User
+x-user: &user
+  user: ${PUID:-1000}:${PGID:-1000}
+
   # Configure Logging
+x-logging: &logging
   logging:
     options:
       max-size: ${LOG_MAX_SIZE:-10m}
       max-file: ${LOG_MAX_FILE:-3}
 
+  ## All base defaults in one
 x-base: &default-base
-  <<: [*default-usage, *default-restart, *default-security, *default-logging]
+  <<: [*limits, *restart, *security, *user, *logging]
 
-x-healthcheck: &default-healthcheck
+  #####################################
+  # Container healthcheck defaults
+  #####################################
+x-healthcheck: &default_healthcheck
   interval: ${HEALTH_INTERVAL:-60s}
   timeout: ${HEALTH_TIMEOUT:-10s}
   retries: ${HEALTH_RETRIES:-5}
   start_period: ${HEALTH_START:-10s}
-
-x-environment: &default-environment
+  
+  #####################################
+  # Container environment defaults
+  #####################################
+x-environment-tz: &environment_tz
   TZ: ${TZ:-America/Chicago}
+
+x-environment-user: &environment_user
   PUID: ${PUID:-1000}
   PGID: ${PGID:-1000}
- 
-# Compose Project Name
+
+  ## All environment defaults in one
+x-environment: &default_environment
+  <<: [*environment_tz, *environment_user]
+
+###############################################################################
+# Start of stack config
+###############################################################################
+# Project Name
 name: ${PROJECT_NAME}
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK}
+    external: true
+  frontend:
+    name: ${PROJECT_NAME}_frontend
+    internal: false
+    driver_opts:
+      encrypted: "true"
+#  backend:
+#    name: ${PROJECT_NAME}_backend
+#    internal: true
+#    driver_opts:
+#      encrypted: "true"
+#  socket_proxy:
+#    name: ${PROJECT_NAME}_socket_proxy
+#    internal: true
+#    driver_opts:
+#      encrypted: "true"
 
 services:
   technitium:
-    <<: *default-base
+    <<: [*limits, *restart, *security, *user, *logging]
     image: technitium/dns-server:${TECHNITIUM_VERSION:-latest}
     #image: technitium/dns-server:latest
     hostname: ${PROJECT_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}  
@@ -60,7 +106,7 @@ services:
       # - "80:80/tcp" #DNS-over-HTTP service (use with reverse proxy or certbot certificate renewal)
       # - "8053:8053/tcp" #DNS-over-HTTP service (use with reverse proxy)
     environment:
-      <<: *default-environment
+      <<: [*environment_tz, *environment_user]
       DNS_SERVER_DOMAIN: ${NS_NAME}.${DOMAIN_NAME} #The primary domain name used by this DNS Server to identify itself.
       DNS_SERVER_FORWARDERS: #Comma separated list of forwarder addresses.
       DNS_SERVER_FORWARDER_PROTOCOL: Tcp #Forwarder protocol options: Udp, Tcp, Tls, Https, HttpsJson.
@@ -79,20 +125,17 @@ services:
         Host(`${SERVICE_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`) ||
         Host(`${PROJECT_NAME}.${SERVER_NAME}.${SUB_DOMAIN_NAME}${DOMAIN_NAME}`)"
         ## Middlewares
-      - "traefik.http.routers.$PROJECT_NAME-rtr.middlewares=chain-no-auth@file"
+      #- "traefik.http.routers.$PROJECT_NAME-rtr.middlewares=chain-no-auth@file"
+      - "traefik.http.routers.$PROJECT_NAME-rtr.middlewares=chain-authentik@file"
         ## HTTP Services
       - "traefik.http.services.$PROJECT_NAME-svc.loadbalancer.server.port=5380"
       ## Komodo Labels
       - "komodo.skip" # Prevent Komodo from stopping with StopAllContainers
     networks:
+      - proxy
       - frontend
-    healthcheck:
-      test: ["CMD-SHELL", "dig @127.0.0.1 ${DOMAIN_NAME} || exit 1"]
-      <<: *default-healthcheck
     sysctls:
       - net.ipv4.ip_local_port_range=1024 65535
-
-networks:
-  frontend:
-    name: ${PROXY_NETWORK}
-    external: true
+    healthcheck:
+      test: ["CMD-SHELL", "dig @127.0.0.1 ${DOMAIN_NAME} || exit 1"]
+      <<: *default_healthcheck
